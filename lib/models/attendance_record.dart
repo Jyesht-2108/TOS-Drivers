@@ -1,0 +1,1 @@
+// Attendance record data model
