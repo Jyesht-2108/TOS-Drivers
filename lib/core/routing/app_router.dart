@@ -12,19 +12,15 @@ import '../../features/attendance/screens/past_attendance_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
 
-// Router provider
+// Router provider - simplified without watching state
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final tripState = ref.watch(tripProvider);
-
   return GoRouter(
     initialLocation: '/login',
     redirect: (BuildContext context, GoRouterState state) {
+      // Read state only when redirect is called, don't watch
+      final authState = ref.read(authProvider);
       final isAuthenticated = authState.isAuthenticated;
-      final hasActiveTrip = tripState.hasActiveTrip;
       final isLoginRoute = state.matchedLocation == '/login';
-      final isActiveTripRoute = state.matchedLocation == '/active-trip';
-      final isAttendanceRoute = state.matchedLocation == '/attendance';
 
       // Authentication guard: redirect to login if not authenticated
       if (!isAuthenticated && !isLoginRoute) {
@@ -36,13 +32,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/routes';
       }
 
-      // Active trip guard: redirect to routes if no active trip
-      // but trying to access active trip or attendance screens
-      if (isAuthenticated && !hasActiveTrip && (isActiveTripRoute || isAttendanceRoute)) {
-        return '/routes';
-      }
-
-      return null; // No redirect needed
+      // No other redirects - let screens handle their own state
+      return null;
     },
     routes: [
       GoRoute(

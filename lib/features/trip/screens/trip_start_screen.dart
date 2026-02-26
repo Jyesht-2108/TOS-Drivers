@@ -34,26 +34,54 @@ class _TripStartScreenState extends ConsumerState<TripStartScreen> {
       _isLoading = true;
     });
 
-    await ref.read(tripProvider.notifier).startTrip(
-          widget.routeId!,
-          _selectedTripType!,
-        );
+    try {
+      await ref.read(tripProvider.notifier).startTrip(
+            widget.routeId!,
+            _selectedTripType!,
+          );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        final tripState = ref.read(tripProvider);
+        
+        setState(() {
+          _isLoading = false;
+        });
 
-      final tripState = ref.read(tripProvider);
-      if (tripState.error != null) {
+        if (tripState.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(tripState.error!),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        } else if (tripState.activeTrip != null) {
+          // Debug: print to see if we reach here
+          print('Trip created successfully: ${tripState.activeTrip!.id}');
+          // Use pushReplacement to navigate to active trip screen
+          context.pushReplacement('/active-trip');
+        } else {
+          // Debug: check if trip is null
+          print('Trip is null after startTrip');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to start trip - no trip created'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Catch any errors
+      print('Error starting trip: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(tripState.error!),
+            content: Text('Error: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
-      } else if (tripState.activeTrip != null) {
-        context.go('/active-trip');
       }
     }
   }
@@ -140,10 +168,11 @@ class _TripStartScreenState extends ConsumerState<TripStartScreen> {
                         icon: Icon(Icons.school),
                       ),
                     ],
-                    selected: _selectedTripType != null ? {_selectedTripType!} : {},
+                    selected: _selectedTripType != null ? {_selectedTripType!} : <TripType>{},
+                    emptySelectionAllowed: true,
                     onSelectionChanged: (Set<TripType> newSelection) {
                       setState(() {
-                        _selectedTripType = newSelection.first;
+                        _selectedTripType = newSelection.isNotEmpty ? newSelection.first : null;
                       });
                     },
                   ),

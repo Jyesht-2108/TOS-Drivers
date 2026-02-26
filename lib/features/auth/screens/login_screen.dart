@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../core/routing/app_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -54,6 +55,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      } else if (authState.isAuthenticated) {
+        // Navigation will be handled by router redirect
+        // But we can trigger a rebuild by accessing the router
+        ref.invalidate(routerProvider);
       }
     }
   }
