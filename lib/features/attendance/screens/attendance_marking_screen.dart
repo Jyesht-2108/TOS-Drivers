@@ -1,4 +1,4 @@
-// Attendance marking screen - Optimized
+// Attendance marking screen - With confirmation step
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,12 +27,24 @@ final attendanceRouteProvider = FutureProvider.autoDispose<models.Route?>((ref) 
   return route;
 });
 
-class AttendanceMarkingScreen extends ConsumerWidget {
+class AttendanceMarkingScreen extends ConsumerStatefulWidget {
   const AttendanceMarkingScreen({super.key});
 
-  Future<void> _markAttendance(
-    WidgetRef ref,
-    BuildContext context,
+  @override
+  ConsumerState<AttendanceMarkingScreen> createState() => _AttendanceMarkingScreenState();
+}
+
+class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScreen> {
+  // Track temporary selections before confirmation
+  final Map<String, AttendanceStatus> _tempSelections = {};
+
+  void _selectAttendance(String studentId, AttendanceStatus status) {
+    setState(() {
+      _tempSelections[studentId] = status;
+    });
+  }
+
+  Future<void> _confirmAttendance(
     String studentId,
     String tripId,
     AttendanceStatus status,
@@ -43,7 +55,11 @@ class AttendanceMarkingScreen extends ConsumerWidget {
           status,
         );
 
-    if (context.mounted) {
+    if (mounted) {
+      setState(() {
+        _tempSelections.remove(studentId);
+      });
+
       final attendanceState = ref.read(attendanceProvider);
       if (attendanceState.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -56,8 +72,14 @@ class AttendanceMarkingScreen extends ConsumerWidget {
     }
   }
 
+  void _cancelSelection(String studentId) {
+    setState(() {
+      _tempSelections.remove(studentId);
+    });
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tripState = ref.watch(tripProvider);
     final routeAsync = ref.watch(attendanceRouteProvider);
@@ -144,7 +166,7 @@ class AttendanceMarkingScreen extends ConsumerWidget {
                         Icon(Icons.people, size: 18, color: Colors.grey[700]),
                         const SizedBox(width: 4),
                         Text(
-                          '${attendanceState.markedCount}/${route.students.length} marked',
+                          '${attendanceState.markedCount}/${route.students.length} confirmed',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[700],
                             fontWeight: FontWeight.w500,
@@ -171,15 +193,21 @@ class AttendanceMarkingScreen extends ConsumerWidget {
 
                     final isLocked = record.isLocked;
                     final status = record.status;
+                    final tempSelection = _tempSelections[student.id];
+                    final hasSelection = tempSelection != null;
                     final isPresent = status == AttendanceStatus.PRESENT;
                     final isAbsent = status == AttendanceStatus.ABSENT;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      elevation: isLocked ? 0 : 2,
+                      elevation: isLocked ? 0 : (hasSelection ? 3 : 2),
                       color: isLocked
                           ? (isPresent ? Colors.green[50] : Colors.red[50])
-                          : null,
+                          : (hasSelection 
+                              ? (tempSelection == AttendanceStatus.PRESENT 
+                                  ? Colors.green[50] 
+                                  : Colors.red[50])
+                              : null),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -190,11 +218,15 @@ class AttendanceMarkingScreen extends ConsumerWidget {
                                 CircleAvatar(
                                   backgroundColor: isLocked
                                       ? (isPresent ? Colors.green : Colors.red)
-                                      : Colors.grey[300],
+                                      : (hasSelection
+                                          ? (tempSelection == AttendanceStatus.PRESENT
+                                              ? Colors.green[300]
+                                              : Colors.red[300])
+                                          : Colors.grey[300]),
                                   child: Text(
                                     student.name[0].toUpperCase(),
                                     style: TextStyle(
-                                      color: isLocked ? Colors.white : Colors.grey[700],
+                                      color: (isLocked || hasSelection) ? Colors.white : Colors.grey[700],
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -212,12 +244,46 @@ class AttendanceMarkingScreen extends ConsumerWidget {
                                         ),
                                       ),
                                       if (isLocked)
-                                        Text(
-                                          isPresent ? 'Marked Present' : 'Marked Absent',
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: isPresent ? Colors.green[700] : Colors.red[700],
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle,
+                                              size: 16,
+                                              color: isPresent ? Colors.green[700] : Colors.red[700],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              isPresent ? 'Confirmed Present' : 'Confirmed Absent',
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: isPresent ? Colors.green[700] : Colors.red[700],
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      else if (hasSelection)
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline,
+                                              size: 16,
+                                              color: tempSelection == AttendanceStatus.PRESENT 
+                                                  ? Colors.green[700] 
+                                                  : Colors.red[700],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              tempSelection == AttendanceStatus.PRESENT 
+                                                  ? 'Selected Present - Tap confirm' 
+                                                  : 'Selected Absent - Tap confirm',
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: tempSelection == AttendanceStatus.PRESENT 
+                                                    ? Colors.green[700] 
+                                                    : Colors.red[700],
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                     ],
                                   ),
@@ -232,47 +298,81 @@ class AttendanceMarkingScreen extends ConsumerWidget {
                             ),
                             if (!isLocked) ...[
                               const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _markAttendance(
-                                            ref,
-                                            context,
-                                            student.id,
-                                            activeTrip.id,
-                                            AttendanceStatus.PRESENT,
-                                          ),
-                                      icon: const Icon(Icons.check, size: 20),
-                                      label: const Text('Present'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.successGreen,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(0, 44),
+                              if (!hasSelection)
+                                // Initial selection buttons
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _selectAttendance(
+                                              student.id,
+                                              AttendanceStatus.PRESENT,
+                                            ),
+                                        icon: const Icon(Icons.check, size: 20),
+                                        label: const Text('Present'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.successGreen,
+                                          side: BorderSide(color: AppTheme.successGreen),
+                                          minimumSize: const Size(0, 44),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _markAttendance(
-                                            ref,
-                                            context,
-                                            student.id,
-                                            activeTrip.id,
-                                            AttendanceStatus.ABSENT,
-                                          ),
-                                      icon: const Icon(Icons.close, size: 20),
-                                      label: const Text('Absent'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.errorRed,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(0, 44),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _selectAttendance(
+                                              student.id,
+                                              AttendanceStatus.ABSENT,
+                                            ),
+                                        icon: const Icon(Icons.close, size: 20),
+                                        label: const Text('Absent'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.errorRed,
+                                          side: BorderSide(color: AppTheme.errorRed),
+                                          minimumSize: const Size(0, 44),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                )
+                              else
+                                // Confirmation buttons
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _cancelSelection(student.id),
+                                        icon: const Icon(Icons.undo, size: 20),
+                                        label: const Text('Change'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.grey[700],
+                                          side: BorderSide(color: Colors.grey[400]!),
+                                          minimumSize: const Size(0, 44),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _confirmAttendance(
+                                              student.id,
+                                              activeTrip.id,
+                                              tempSelection,
+                                            ),
+                                        icon: const Icon(Icons.check_circle, size: 20),
+                                        label: const Text('Confirm & Lock'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: tempSelection == AttendanceStatus.PRESENT
+                                              ? AppTheme.successGreen
+                                              : AppTheme.errorRed,
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size(0, 44),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                             ],
                           ],
                         ),

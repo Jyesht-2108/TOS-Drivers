@@ -7,6 +7,7 @@ import '../../../models/trip.dart';
 import '../../../models/route.dart' as models;
 import '../../../providers/trip_provider.dart';
 import '../../../services/route_service.dart';
+import '../../../shared/widgets/slide_button.dart';
 
 final selectedRouteProvider = FutureProvider.family<models.Route?, String?>((ref, routeId) async {
   if (routeId == null) return null;
@@ -179,22 +180,20 @@ class _TripStartScreenState extends ConsumerState<TripStartScreen> {
 
                   const Spacer(),
 
-                  // Start Trip Button
-                  ElevatedButton(
-                    onPressed: _selectedTripType != null && !_isLoading
+                  // Start Trip Slide Button
+                  SlideButton(
+                    text: 'Slide to Start Trip',
+                    icon: Icons.play_arrow,
+                    backgroundColor: _selectedTripType != null && !_isLoading
+                        ? theme.colorScheme.primary
+                        : Colors.grey,
+                    foregroundColor: Colors.white,
+                    isLoading: _isLoading,
+                    onSlideComplete: _selectedTripType != null && !_isLoading
                         ? _handleStartTrip
-                        : null,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Start Trip'),
+                        : () {},
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),

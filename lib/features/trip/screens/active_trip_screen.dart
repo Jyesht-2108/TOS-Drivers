@@ -10,6 +10,7 @@ import '../../../models/route.dart' as models;
 import '../../../providers/trip_provider.dart';
 import '../../../providers/attendance_provider.dart';
 import '../../../services/route_service.dart';
+import '../../../shared/widgets/slide_button.dart';
 import 'package:intl/intl.dart';
 
 final activeRouteProvider = FutureProvider<models.Route?>((ref) async {
@@ -289,27 +290,16 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
-                      // End Trip Button
-                      ElevatedButton.icon(
-                        onPressed: !_isEndingTrip ? _handleEndTrip : null,
-                        icon: _isEndingTrip
-                            ? const SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.stop_circle),
-                        label: Text(_isEndingTrip ? 'Ending Trip...' : 'End Trip'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.error,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                      // End Trip Slide Button
+                      SlideButton(
+                        text: 'Slide to End Trip',
+                        icon: Icons.stop,
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: Colors.white,
+                        isLoading: _isEndingTrip,
+                        onSlideComplete: !_isEndingTrip ? _handleEndTrip : () {},
                       ),
                     ],
                   ),
