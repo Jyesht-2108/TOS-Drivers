@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'dart:async';
 import '../../../models/trip.dart';
 import '../../../models/route.dart' as models;
 import '../../../providers/trip_provider.dart';
@@ -29,6 +31,12 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   bool _isEndingTrip = false;
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+
+  // Sample coordinates for demonstration (Dhaka, Bangladesh area)
+  static const LatLng _initialPosition = LatLng(23.8103, 90.4125);
 
   @override
   void initState() {
@@ -37,11 +45,65 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    _initializeMap();
+  }
+
+  void _initializeMap() {
+    // Sample student drop points along a route
+    final List<LatLng> dropPoints = [
+      const LatLng(23.8103, 90.4125), // Start point
+      const LatLng(23.8150, 90.4180),
+      const LatLng(23.8200, 90.4220),
+      const LatLng(23.8250, 90.4280),
+      const LatLng(23.8300, 90.4340),
+      const LatLng(23.8350, 90.4400),
+      const LatLng(23.8400, 90.4460), // End point
+    ];
+
+    // Create markers for each drop point
+    _markers = dropPoints.asMap().entries.map((entry) {
+      final index = entry.key;
+      final position = entry.value;
+      
+      return Marker(
+        markerId: MarkerId('drop_point_$index'),
+        position: position,
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          index == 0 
+            ? BitmapDescriptor.hueGreen // Start point
+            : index == dropPoints.length - 1
+              ? BitmapDescriptor.hueRed // End point
+              : BitmapDescriptor.hueBlue, // Student drop points
+        ),
+        infoWindow: InfoWindow(
+          title: index == 0 
+            ? 'Start Point'
+            : index == dropPoints.length - 1
+              ? 'End Point'
+              : 'Student ${index}',
+          snippet: index == 0 || index == dropPoints.length - 1
+            ? null
+            : 'Drop point',
+        ),
+      );
+    }).toSet();
+
+    // Create polyline connecting all points
+    _polylines = {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: dropPoints,
+        color: Colors.blue,
+        width: 4,
+        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+      ),
+    };
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -105,71 +167,57 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
           }
 
           return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Trip Details Card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Trip Details Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  color: theme.colorScheme.surface,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  route.name,
-                                  style: theme.textTheme.headlineMedium,
-                                ),
+                          Expanded(
+                            child: Text(
+                              route.name,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  activeTrip.tripType.name,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Icon(Icons.access_time, size: 20, color: Colors.grey[600]),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Started: ${DateFormat('hh:mm a').format(activeTrip.startTime)}',
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              activeTrip.tripType.name,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // GPS Indicator
-                  Card(
-                    color: Colors.green[50],
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
+                      const SizedBox(height: 8),
+                      Row(
                         children: [
+                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Started: ${DateFormat('hh:mm a').format(activeTrip.startTime)}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
                           AnimatedBuilder(
                             animation: _pulseController,
                             builder: (context, child) {
@@ -178,66 +226,95 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                                 child: Icon(
                                   Icons.gps_fixed,
                                   color: Colors.green[700],
-                                  size: 32,
+                                  size: 16,
                                 ),
                               );
                             },
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'GPS Streaming Active',
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[900],
-                                  ),
-                                ),
-                                Text(
-                                  'Location is being tracked',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.green[700],
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(width: 4),
+                          Text(
+                            'GPS Active',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+
+                // Map View
+                Expanded(
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: _initialPosition,
+                      zoom: 13,
                     ),
+                    markers: _markers,
+                    polylines: _polylines,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    mapType: MapType.normal,
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController = controller;
+                    },
                   ),
+                ),
 
-                  const Spacer(),
-
-                  // Mark Attendance Button
-                  OutlinedButton(
-                    onPressed: _handleMarkAttendance,
-                    child: const Text('Mark Attendance'),
+                // Bottom Action Buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Mark Attendance Button
+                      OutlinedButton.icon(
+                        onPressed: _handleMarkAttendance,
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Mark Attendance'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
 
-                  // End Trip Button
-                  ElevatedButton(
-                    onPressed: !_isEndingTrip ? _handleEndTrip : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.error,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: _isEndingTrip
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('End Trip'),
+                      // End Trip Button
+                      ElevatedButton.icon(
+                        onPressed: !_isEndingTrip ? _handleEndTrip : null,
+                        icon: _isEndingTrip
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.stop_circle),
+                        label: Text(_isEndingTrip ? 'Ending Trip...' : 'End Trip'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.error,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
