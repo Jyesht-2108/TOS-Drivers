@@ -10,6 +10,7 @@ import '../../features/trip/screens/active_trip_screen.dart';
 import '../../features/attendance/screens/attendance_marking_screen.dart';
 import '../../features/attendance/screens/past_attendance_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/students/screens/student_list_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
 
@@ -74,6 +75,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile',
         name: 'profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/students',
+        name: 'students',
+        builder: (context, state) => const StudentListScreen(),
       ),
     ],
   );

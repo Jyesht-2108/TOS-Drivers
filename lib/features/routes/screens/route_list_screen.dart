@@ -90,6 +90,11 @@ class RouteListScreen extends ConsumerWidget {
         title: const Text('My Routes'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () => context.push('/students'),
+            tooltip: 'Students',
+          ),
+          IconButton(
             icon: const Icon(Icons.person),
             onPressed: () => context.push('/profile'),
             tooltip: 'Profile',
