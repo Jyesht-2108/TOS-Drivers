@@ -9,6 +9,7 @@ import '../../features/trip/screens/trip_start_screen.dart';
 import '../../features/trip/screens/active_trip_screen.dart';
 import '../../features/attendance/screens/attendance_marking_screen.dart';
 import '../../features/attendance/screens/past_attendance_screen.dart';
+import '../../features/profile/screens/profile_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
 
@@ -68,6 +69,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/past-attendance',
         name: 'past-attendance',
         builder: (context, state) => const PastAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfileScreen(),
       ),
     ],
   );
