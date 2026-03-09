@@ -23,14 +23,15 @@ func StartTrip(c *gin.Context) {
 
 	tripID := uuid.New().String()
 	now := time.Now()
+	tripDate := now.Format("2006-01-02") // Format as DATE
 
-	query := `INSERT INTO trips (id, tenant_id, route_id, driver_id, trip_type, status, start_time, created_at)
-	          VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7)
+	query := `INSERT INTO trips (id, tenant_id, route_id, driver_id, trip_type, trip_date, status, start_time, created_at)
+	          VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8)
 	          RETURNING id, tenant_id, route_id, driver_id, trip_type, status, start_time, created_at`
 
 	var trip models.Trip
 	err := config.DB.QueryRow(query, tripID, tenantID, req.RouteID, driverID, 
-		req.TripType, now, now).Scan(
+		req.TripType, tripDate, now, now).Scan(
 		&trip.ID, &trip.TenantID, &trip.RouteID, &trip.DriverID,
 		&trip.TripType, &trip.Status, &trip.StartTime, &trip.CreatedAt,
 	)
@@ -93,8 +94,8 @@ func GetActiveTrip(c *gin.Context) {
 }
 
 func createAttendanceRecords(tripID, routeID string) {
-	query := `INSERT INTO attendance (id, trip_id, student_id, locked, created_at)
-	          SELECT gen_random_uuid(), $1, student_id, false, NOW()
+	query := `INSERT INTO attendance (id, trip_id, student_id, locked, created_at, updated_at)
+	          SELECT gen_random_uuid(), $1, student_id, false, NOW(), NOW()
 	          FROM route_students WHERE route_id = $2`
 
 	config.DB.Exec(query, tripID, routeID)

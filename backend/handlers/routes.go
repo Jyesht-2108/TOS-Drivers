@@ -55,7 +55,7 @@ func GetRouteByID(c *gin.Context) {
 func GetStudentsByRoute(c *gin.Context) {
 	routeID := c.Param("id")
 
-	query := `SELECT s.id, s.tenant_id, s.name, s.parent_user_id, s.created_at, s.updated_at
+	query := `SELECT s.id, s.tenant_id, s.name, s.grade, s.section, s.created_at, s.updated_at
 	          FROM students s
 	          INNER JOIN route_students rs ON s.id = rs.student_id
 	          WHERE rs.route_id = $1
@@ -72,7 +72,7 @@ func GetStudentsByRoute(c *gin.Context) {
 	for rows.Next() {
 		var student models.Student
 		if err := rows.Scan(&student.ID, &student.TenantID, &student.Name,
-			&student.ParentUserID, &student.CreatedAt, &student.UpdatedAt); err != nil {
+			&student.Grade, &student.Section, &student.CreatedAt, &student.UpdatedAt); err != nil {
 			continue
 		}
 		students = append(students, student)

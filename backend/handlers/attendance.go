@@ -80,10 +80,10 @@ func MarkAttendance(c *gin.Context) {
 	now := time.Now()
 
 	query := `UPDATE attendance 
-	          SET status = $1, marked_by = $2, marked_at = $3
-	          WHERE id = $4 AND locked = false`
+	          SET status = $1, marked_by = $2, marked_at = $3, updated_at = $4
+	          WHERE id = $5 AND locked = false`
 
-	result, err := config.DB.Exec(query, req.Status, driverID, now, req.AttendanceID)
+	result, err := config.DB.Exec(query, req.Status, driverID, now, now, req.AttendanceID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
