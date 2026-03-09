@@ -53,7 +53,7 @@ func GetRouteByID(c *gin.Context) {
 }
 
 func GetStudentsByRoute(c *gin.Context) {
-	routeID := c.Param("route_id")
+	routeID := c.Param("id")
 
 	query := `SELECT s.id, s.tenant_id, s.name, s.parent_user_id, s.created_at, s.updated_at
 	          FROM students s

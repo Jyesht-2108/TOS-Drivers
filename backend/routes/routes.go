@@ -19,8 +19,8 @@ func SetupRoutes(router *gin.RouterGroup) {
 	{
 		// Routes
 		protected.GET("/routes", handlers.GetRoutes)
-		protected.GET("/routes/:route_id/students", handlers.GetStudentsByRoute)
 		protected.GET("/routes/:id", handlers.GetRouteByID)
+		protected.GET("/routes/:id/students", handlers.GetStudentsByRoute)
 
 		// Trips
 		protected.POST("/trips/start", handlers.StartTrip)
