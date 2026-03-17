@@ -7,6 +7,7 @@ type User struct {
 	Role      string    `json:"role"`
 	TenantID  string    `json:"tenant_id"`
 	Phone     string    `json:"phone"`
+	Name      string    `json:"name"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

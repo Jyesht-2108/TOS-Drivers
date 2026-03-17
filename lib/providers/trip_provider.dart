@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trip.dart';
 import '../services/trip_service.dart';
+import 'sse_provider.dart';
 
 // Trip state class
 class TripState {
@@ -65,8 +66,8 @@ class TripNotifier extends StateNotifier<TripState> {
   }
 
   // Load active trip
-  void _loadActiveTrip() {
-    final activeTrip = _tripService.getActiveTrip();
+  Future<void> _loadActiveTrip() async {
+    final activeTrip = await _tripService.getActiveTrip();
     if (activeTrip != null) {
       state = state.copyWith(activeTrip: activeTrip);
     }
@@ -130,8 +131,8 @@ class TripNotifier extends StateNotifier<TripState> {
   }
 
   // Refresh active trip
-  void refreshActiveTrip() {
-    _loadActiveTrip();
+  Future<void> refreshActiveTrip() async {
+    await _loadActiveTrip();
   }
 
   // Clear error
@@ -142,7 +143,8 @@ class TripNotifier extends StateNotifier<TripState> {
 
 // Provider for TripService
 final tripServiceProvider = Provider<TripService>((ref) {
-  return TripService();
+  final baseUrl = ref.watch(baseUrlProvider);
+  return TripService(baseUrl: baseUrl);
 });
 
 // Provider for TripNotifier

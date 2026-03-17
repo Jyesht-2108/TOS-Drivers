@@ -1,45 +1,98 @@
-// Authentication service with mock implementation
+// Authentication service with real API implementation
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
-import 'mock_data_store.dart';
+import '../core/constants/app_constants.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
+  static const String _userPhoneKey = 'user_phone';
+  static const String _userNameKey = 'user_name';
+  static const String _userEmailKey = 'user_email';
 
   User? _currentUser;
+  final String baseUrl;
 
-  // Login with phone and OTP
+  AuthService({this.baseUrl = ApiConfig.baseUrl});
+
+  // Login with phone and OTP (Go backend)
   Future<User?> login(String phone, String otp) async {
-    return await MockDataStore.simulateApiCall(() {
-      // Validate OTP
-      if (otp != MockDataStore.validOtp) {
-        throw Exception('Invalid OTP');
-      }
-
-      // Find user by phone number
-      final user = MockDataStore.mockUsers.firstWhere(
-        (u) => u.phone == phone,
-        orElse: () => throw Exception('Invalid phone number'),
+    try {
+      final url = Uri.parse('${ApiConfig.apiBaseUrl}/auth/login');
+      print('Auth: Attempting login to $url with phone: $phone');
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phone': phone,
+        }),
+      ).timeout(
+        AppConstants.apiTimeout,
+        onTimeout: () {
+          throw Exception('Connection timeout - Check if backend is accessible at ${ApiConfig.baseUrl}');
+        },
       );
 
-      // Store token and user ID in SharedPreferences
-      _persistAuthData(user.token, user.id);
-      
-      _currentUser = user;
-      return user;
-    });
+      print('Auth: Response status: ${response.statusCode}');
+      print('Auth: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final apiResponse = jsonDecode(response.body);
+        
+        // Go backend returns: { "token": "...", "user": {...} }
+        final token = apiResponse['token'] as String;
+        final userData = apiResponse['user'];
+        
+        final user = User(
+          id: userData['id'].toString(),
+          phone: userData['phone'] as String? ?? '',
+          role: UserRole.DRIVER,
+          token: token,
+          name: userData['name'] as String?,
+          email: userData['email'] as String?,
+        );
+
+        // Store user data
+        await _persistAuthData(
+          token,
+          user.id,
+          user.phone,
+          user.name ?? 'Driver',
+          user.email ?? '',
+        );
+        
+        _currentUser = user;
+        print('Auth: Login successful for ${user.name}');
+        return user;
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid phone number or user not found');
+      } else if (response.statusCode == 400) {
+        throw Exception('Bad request - Check phone number format');
+      } else {
+        throw Exception('Login failed: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Auth: Error during login: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow;
+      }
+      throw Exception('Network error: Unable to connect to server at ${ApiConfig.baseUrl}');
+    }
   }
 
   // Logout and clear stored token
   Future<void> logout() async {
-    return await MockDataStore.simulateApiCall(() async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userIdKey);
-      _currentUser = null;
-    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_userPhoneKey);
+    await prefs.remove(_userNameKey);
+    await prefs.remove(_userEmailKey);
+    _currentUser = null;
   }
 
   // Get current authenticated user
@@ -57,29 +110,38 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
     final userId = prefs.getString(_userIdKey);
+    final phone = prefs.getString(_userPhoneKey);
+    final name = prefs.getString(_userNameKey);
+    final email = prefs.getString(_userEmailKey);
 
     if (token != null && userId != null) {
-      // Find user by ID
-      try {
-        final user = MockDataStore.mockUsers.firstWhere(
-          (u) => u.id == userId && u.token == token,
-        );
-        _currentUser = user;
-        return user;
-      } catch (e) {
-        // User not found, clear invalid data
-        await prefs.remove(_tokenKey);
-        await prefs.remove(_userIdKey);
-        return null;
-      }
+      final user = User(
+        id: userId,
+        phone: phone ?? '',
+        role: UserRole.DRIVER,
+        token: token,
+        name: name,
+        email: email,
+      );
+      _currentUser = user;
+      return user;
     }
     return null;
   }
 
   // Persist authentication data to SharedPreferences
-  Future<void> _persistAuthData(String token, String userId) async {
+  Future<void> _persistAuthData(
+    String token,
+    String userId,
+    String phone,
+    String name,
+    String email,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
+    await prefs.setString(_userPhoneKey, phone);
+    await prefs.setString(_userNameKey, name);
+    await prefs.setString(_userEmailKey, email);
   }
 }

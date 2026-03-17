@@ -1,8 +1,8 @@
-// Authentication state management with Riverpod
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/app_lifecycle_service.dart';
+import 'sse_provider.dart';
 
 // Auth state class
 class AuthState {
@@ -52,8 +52,9 @@ class AuthState {
 // Auth notifier
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
+  final Ref _ref;
 
-  AuthNotifier(this._authService) : super(const AuthState());
+  AuthNotifier(this._authService, this._ref) : super(const AuthState());
 
   // Login
   Future<void> login(String phone, String otp) async {
@@ -62,6 +63,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authService.login(phone, otp);
       state = AuthState(user: user, isLoading: false);
+      
+      // Connect to SSE after successful login
+      if (user != null) {
+        try {
+          final lifecycleService = _ref.read(appLifecycleServiceProvider);
+          await lifecycleService.onLogin(user.id, user.token);
+        } catch (e) {
+          print('Auth: SSE connection failed, but login successful: $e');
+          // Don't fail login if SSE fails
+        }
+      }
     } catch (e) {
       state = AuthState(
         user: null,
@@ -76,6 +88,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
     
     try {
+      // Disconnect SSE before logout
+      final lifecycleService = _ref.read(appLifecycleServiceProvider);
+      lifecycleService.onLogout();
+      
       await _authService.logout();
       state = state.clearUser();
     } catch (e) {
@@ -93,6 +109,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authService.loadStoredUser();
       state = AuthState(user: user, isLoading: false);
+      
+      // Connect to SSE if user was loaded
+      if (user != null) {
+        try {
+          final lifecycleService = _ref.read(appLifecycleServiceProvider);
+          await lifecycleService.onLogin(user.id, user.token);
+        } catch (e) {
+          print('Auth: SSE connection failed on auto-login: $e');
+          // Don't fail auto-login if SSE fails
+        }
+      }
     } catch (e) {
       state = const AuthState(user: null, isLoading: false);
     }
@@ -106,11 +133,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 // Provider for AuthService
 final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService();
+  final baseUrl = ref.watch(baseUrlProvider);
+  return AuthService(baseUrl: baseUrl);
 });
 
 // Provider for AuthNotifier
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
+  return AuthNotifier(authService, ref);
 });

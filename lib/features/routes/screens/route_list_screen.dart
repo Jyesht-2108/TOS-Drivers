@@ -5,20 +5,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/trip_provider.dart';
+import '../../../providers/sse_provider.dart';
 import '../../../services/route_service.dart';
 import '../../../models/route.dart' as models;
 
-final routeServiceProvider = Provider((ref) => RouteService());
+final routeServiceProvider = Provider((ref) {
+  final baseUrl = ref.watch(baseUrlProvider);
+  return RouteService(baseUrl: baseUrl);
+});
 
-final assignedRoutesProvider = FutureProvider<List<models.Route>>((ref) async {
+final assignedRoutesProvider = FutureProvider.autoDispose<List<models.Route>>((ref) async {
   final authState = ref.watch(authProvider);
   final routeService = ref.watch(routeServiceProvider);
+  
+  // Watch the refresh trigger to automatically reload when routes change
+  final refreshTrigger = ref.watch(routeRefreshTriggerProvider);
+  print('RouteList: Refresh trigger changed to $refreshTrigger');
   
   if (authState.user == null) {
     return [];
   }
   
-  return await routeService.getAssignedRoutes(authState.user!.id);
+  print('RouteList: Fetching routes for user ${authState.user!.id}');
+  final routes = await routeService.getAssignedRoutes(authState.user!.id);
+  print('RouteList: Fetched ${routes.length} routes');
+  return routes;
 });
 
 class RouteListScreen extends ConsumerWidget {

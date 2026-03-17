@@ -33,5 +33,21 @@ func SetupRoutes(router *gin.RouterGroup) {
 
 		// Location
 		protected.POST("/location/update", handlers.UpdateLocation)
+
+		// SSE - Driver notifications stream
+		protected.GET("/driver/events", handlers.DriverEvents)
+
+		// Admin - Send notification to driver
+		protected.POST("/driver/notify", handlers.SendNotification)
+	}
+
+	// Admin routes
+	admin := router.Group("/admin")
+	// admin.Use(middleware.AuthMiddleware(), middleware.AdminOnly())
+	{
+		// Route assignments
+		admin.GET("/routes/assignments", handlers.GetRouteAssignments)
+		admin.POST("/routes/:route_id/assign-driver", handlers.AssignDriverToRoute)
+		admin.POST("/routes/:route_id/unassign-driver", handlers.UnassignDriverFromRoute)
 	}
 }

@@ -16,11 +16,10 @@ final attendanceRouteProvider = FutureProvider.autoDispose<models.Route?>((ref) 
   final routeService = RouteService();
   final route = await routeService.getRouteById(tripState.activeTrip!.routeId);
   
-  // Initialize attendance immediately when route is loaded
+  // Load attendance from backend when route is loaded
   if (route != null && tripState.activeTrip != null) {
-    ref.read(attendanceProvider.notifier).initializeAttendance(
+    await ref.read(attendanceProvider.notifier).loadAttendanceForTrip(
       tripState.activeTrip!.id,
-      route.students,
     );
   }
   

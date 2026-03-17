@@ -9,17 +9,29 @@ import (
 )
 
 func GetRoutes(c *gin.Context) {
-	query := `SELECT id, tenant_id, name, status, created_at, updated_at 
-	          FROM routes WHERE status = 'ACTIVE' ORDER BY name`
+	// Get driver ID from header (sent by Flutter app)
+	driverID := c.GetHeader("X-User-ID")
+	if driverID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized - missing user ID"})
+		return
+	}
 
-	rows, err := config.DB.Query(query)
+	query := `SELECT r.id, r.tenant_id, r.name, r.status, r.created_at, r.updated_at 
+	          FROM routes r
+	          INNER JOIN route_driver_assignment rda ON r.id = rda.route_id
+	          WHERE r.status = 'ACTIVE' 
+	          AND rda.driver_id = $1
+	          AND rda.active_to IS NULL
+	          ORDER BY r.name`
+
+	rows, err := config.DB.Query(query, driverID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var routes []models.Route
+	routes := make([]models.Route, 0) // Initialize empty slice instead of nil
 	for rows.Next() {
 		var route models.Route
 		if err := rows.Scan(&route.ID, &route.TenantID, &route.Name, 
@@ -68,7 +80,7 @@ func GetStudentsByRoute(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var students []models.Student
+	students := make([]models.Student, 0) // Initialize empty slice instead of nil
 	for rows.Next() {
 		var student models.Student
 		if err := rows.Scan(&student.ID, &student.TenantID, &student.Name,

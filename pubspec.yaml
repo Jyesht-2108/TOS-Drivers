@@ -52,6 +52,16 @@ dependencies:
   
   # URL launcher for calling
   url_launcher: ^6.3.1
+  
+  # HTTP client
+  http: ^1.2.0
+  
+  # Notifications
+  flutter_local_notifications: ^17.2.3
+  
+  # GPS/Location tracking
+  geolocator: ^10.1.0
+  permission_handler: ^11.1.0
 
 dev_dependencies:
   flutter_test:

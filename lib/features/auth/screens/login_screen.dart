@@ -27,7 +27,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   bool get _isFormValid {
-    return _phoneController.text.length == 10 && _otpController.text.length == 6;
+    return _phoneController.text.length >= 10 && _otpController.text.length == 6;
   }
 
   Future<void> _handleLogin() async {
@@ -100,11 +100,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 13,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d+]')),
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
-                    hintText: 'Enter 10-digit phone number',
+                    hintText: 'Enter phone with country code',
                     prefixIcon: Icon(Icons.phone),
                     counterText: '',
                   ),
@@ -136,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Test credentials:\nPhone: 9876543210\nOTP: 123456',
+                    'Test credentials:\nPhone: +1234567891\nOTP: 123456 (any 6 digits)',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.blue[900],
                     ),

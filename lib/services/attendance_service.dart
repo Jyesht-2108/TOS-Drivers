@@ -1,34 +1,50 @@
-// Attendance service with mock implementation
+// Attendance service with real API implementation
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/attendance_record.dart';
-import '../models/student.dart';
-import 'mock_data_store.dart';
 
 class AttendanceService {
-  // In-memory storage for attendance records
-  final Map<String, List<AttendanceRecord>> _attendanceByTrip = {};
+  final String baseUrl;
 
-  // Initialize attendance records for a trip
-  void initializeAttendanceForTrip(String tripId, List<Student> students) {
-    if (_attendanceByTrip.containsKey(tripId)) {
-      return; // Already initialized
-    }
+  AttendanceService({this.baseUrl = 'http://192.168.1.101:8082'});
 
-    _attendanceByTrip[tripId] = students.map((student) {
-      return AttendanceRecord(
-        studentId: student.id,
-        tripId: tripId,
-        status: AttendanceStatus.UNMARKED,
-        isLocked: false,
-      );
-    }).toList();
+  // Get auth token from storage
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // Get user ID from storage
+  Future<String?> _getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_id');
   }
 
   // Get attendance records for a trip
   Future<List<AttendanceRecord>> getAttendanceForTrip(String tripId) async {
-    return await MockDataStore.simulateApiCall(() {
-      return _attendanceByTrip[tripId] ?? [];
-    });
+    try {
+      final token = await _getToken();
+      
+      final url = Uri.parse('$baseUrl/api/v1/trips/$tripId/attendance');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => AttendanceRecord.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load attendance: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error: Unable to fetch attendance');
+    }
   }
 
   // Mark attendance for a student
@@ -37,52 +53,48 @@ class AttendanceService {
     String tripId,
     AttendanceStatus status,
   ) async {
-    return await MockDataStore.simulateApiCall(() {
-      final attendanceList = _attendanceByTrip[tripId];
+    try {
+      final token = await _getToken();
+      final userId = await _getUserId();
       
-      if (attendanceList == null) {
-        throw Exception('No attendance records found for this trip');
-      }
-
-      final recordIndex = attendanceList.indexWhere(
-        (record) => record.studentId == studentId,
+      final url = Uri.parse('$baseUrl/api/v1/attendance/mark');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'X-User-ID': userId ?? '',
+        },
+        body: jsonEncode({
+          'student_id': studentId,
+          'trip_id': tripId,
+          'status': status == AttendanceStatus.PRESENT ? 'PRESENT' : 'ABSENT',
+        }),
       );
 
-      if (recordIndex == -1) {
-        throw Exception('Student not found in this trip');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return AttendanceRecord.fromJson(data);
+      } else {
+        throw Exception('Failed to mark attendance: ${response.statusCode}');
       }
-
-      final existingRecord = attendanceList[recordIndex];
-
-      if (existingRecord.isLocked) {
-        throw Exception('Attendance is already locked for this student');
-      }
-
-      // Create updated record with locked status
-      final updatedRecord = AttendanceRecord(
-        studentId: studentId,
-        tripId: tripId,
-        status: status,
-        isLocked: true,
-        markedAt: DateTime.now(),
-      );
-
-      attendanceList[recordIndex] = updatedRecord;
-      return updatedRecord;
-    });
+    } catch (e) {
+      throw Exception('Network error: Unable to mark attendance');
+    }
   }
 
   // Check if attendance is locked for a student
-  bool isAttendanceLocked(String studentId, String tripId) {
-    final attendanceList = _attendanceByTrip[tripId];
-    
-    if (attendanceList == null) {
-      return false;
-    }
-
+  Future<bool> isAttendanceLocked(String studentId, String tripId) async {
     try {
+      final attendanceList = await getAttendanceForTrip(tripId);
       final record = attendanceList.firstWhere(
         (record) => record.studentId == studentId,
+        orElse: () => AttendanceRecord(
+          studentId: studentId,
+          tripId: tripId,
+          status: AttendanceStatus.UNMARKED,
+          isLocked: false,
+        ),
       );
       return record.isLocked;
     } catch (e) {

@@ -2,8 +2,8 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/attendance_record.dart';
-import '../models/student.dart';
 import '../services/attendance_service.dart';
+import 'sse_provider.dart';
 
 // Attendance state class
 class AttendanceState {
@@ -75,12 +75,6 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
 
   AttendanceNotifier(this._attendanceService) : super(const AttendanceState());
 
-  // Initialize attendance for a trip
-  void initializeAttendance(String tripId, List<Student> students) {
-    _attendanceService.initializeAttendanceForTrip(tripId, students);
-    loadAttendanceForTrip(tripId);
-  }
-
   // Load attendance records for a trip
   Future<void> loadAttendanceForTrip(String tripId) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -129,8 +123,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
   }
 
   // Check if attendance is locked for a student
-  bool isLocked(String studentId, String tripId) {
-    return _attendanceService.isAttendanceLocked(studentId, tripId);
+  Future<bool> isLocked(String studentId, String tripId) async {
+    return await _attendanceService.isAttendanceLocked(studentId, tripId);
   }
 
   // Clear attendance records (e.g., when leaving attendance screen)
@@ -146,7 +140,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
 
 // Provider for AttendanceService
 final attendanceServiceProvider = Provider<AttendanceService>((ref) {
-  return AttendanceService();
+  final baseUrl = ref.watch(baseUrlProvider);
+  return AttendanceService(baseUrl: baseUrl);
 });
 
 // Provider for AttendanceNotifier

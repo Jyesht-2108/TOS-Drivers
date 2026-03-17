@@ -21,14 +21,15 @@ class ProfileScreen extends ConsumerWidget {
       );
     }
 
-    // Mock driver data - in production, this would come from an API
-    final driverName = 'John Doe';
-    final driverEmail = 'john.doe@tosschool.com';
+    // Get real driver data from authenticated user
+    final driverName = user.name ?? 'Driver'; // From database
+    final driverEmail = user.email ?? 'N/A';
+    final driverPhone = user.phone; // From database
     final driverLicense = 'DL-2024-${user.id.substring(0, 6).toUpperCase()}';
-    final vehicleNumber = 'DH-01-AB-1234';
-    final joinDate = 'January 2024';
-    final totalTrips = 156;
-    final rating = 4.8;
+    final vehicleNumber = 'DH-01-AB-1234'; // TODO: Add to user model
+    final joinDate = 'January 2024'; // TODO: Format from user.createdAt
+    final totalTrips = 156; // TODO: Fetch from trips table
+    final rating = 4.8; // TODO: Calculate from feedback
 
     return Scaffold(
       appBar: AppBar(
@@ -224,6 +225,13 @@ class ProfileScreen extends ConsumerWidget {
                     icon: Icons.history,
                     label: 'Trip History',
                     onTap: () => context.push('/past-attendance'),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildActionButton(
+                    context,
+                    icon: Icons.sensors,
+                    label: 'SSE + GPS Test',
+                    onTap: () => context.push('/sse-gps-test'),
                   ),
                   const SizedBox(height: 12),
                   _buildActionButton(

@@ -10,9 +10,9 @@ import '../../features/trip/screens/active_trip_screen.dart';
 import '../../features/attendance/screens/attendance_marking_screen.dart';
 import '../../features/attendance/screens/past_attendance_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/sse_gps_test_screen.dart';
 import '../../features/students/screens/student_list_screen.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/trip_provider.dart';
 
 // Router provider - simplified without watching state
 final routerProvider = Provider<GoRouter>((ref) {
@@ -80,6 +80,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/students',
         name: 'students',
         builder: (context, state) => const StudentListScreen(),
+      ),
+      GoRoute(
+        path: '/sse-gps-test',
+        name: 'sse-gps-test',
+        builder: (context, state) => const SseGpsTestScreen(),
       ),
     ],
   );
