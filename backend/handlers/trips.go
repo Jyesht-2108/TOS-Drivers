@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 	"tos-backend/config"
@@ -23,20 +24,22 @@ func StartTrip(c *gin.Context) {
 
 	tripID := uuid.New().String()
 	now := time.Now()
-	tripDate := now.Format("2006-01-02") // Format as DATE
+
+	log.Printf("StartTrip: RouteID=%s, DriverID=%s, TripType=%s", req.RouteID, driverID, req.TripType)
 
 	query := `INSERT INTO trips (id, tenant_id, route_id, driver_id, trip_type, trip_date, status, start_time, created_at)
-	          VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8)
+	          VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'ACTIVE', $6, $7)
 	          RETURNING id, tenant_id, route_id, driver_id, trip_type, status, start_time, created_at`
 
 	var trip models.Trip
 	err := config.DB.QueryRow(query, tripID, tenantID, req.RouteID, driverID, 
-		req.TripType, tripDate, now, now).Scan(
+		req.TripType, now, now).Scan(
 		&trip.ID, &trip.TenantID, &trip.RouteID, &trip.DriverID,
 		&trip.TripType, &trip.Status, &trip.StartTime, &trip.CreatedAt,
 	)
 
 	if err != nil {
+		log.Printf("StartTrip ERROR: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -50,26 +53,34 @@ func StartTrip(c *gin.Context) {
 func EndTrip(c *gin.Context) {
 	var req models.EndTripRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("EndTrip: Invalid request body - %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("EndTrip: Attempting to end trip ID: %s", req.TripID)
+
 	now := time.Now()
-	query := `UPDATE trips SET status = 'ENDED', end_time = $1 WHERE id = $2 AND status = 'ACTIVE'`
+	query := `UPDATE trips SET status = 'ENDED', end_time = $1 
+	          WHERE id = $2 AND status = 'ACTIVE'
+	          RETURNING id, tenant_id, route_id, driver_id, trip_type, status, start_time, end_time, created_at`
 
-	result, err := config.DB.Exec(query, now, req.TripID)
+	var trip models.Trip
+	var endTime time.Time
+	err := config.DB.QueryRow(query, now, req.TripID).Scan(
+		&trip.ID, &trip.TenantID, &trip.RouteID, &trip.DriverID,
+		&trip.TripType, &trip.Status, &trip.StartTime, &endTime, &trip.CreatedAt,
+	)
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
+		log.Printf("EndTrip: No active trip found with ID: %s, error: %v", req.TripID, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Active trip not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Trip ended successfully"})
+	trip.EndTime = &endTime
+	log.Printf("EndTrip: Successfully ended trip ID: %s", req.TripID)
+	c.JSON(http.StatusOK, trip)
 }
 
 func GetActiveTrip(c *gin.Context) {

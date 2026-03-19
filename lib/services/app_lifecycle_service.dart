@@ -80,38 +80,27 @@ class AppLifecycleService {
   Future<void> onTripStart(String tripId, String driverId, String token) async {
     final gpsService = ref.read(gpsServiceProvider);
     
-    // Set up GPS handlers
-    gpsService.onLocationUpdate = (position) {
-      print('AppLifecycle: GPS update - Lat: ${position.latitude}, Lng: ${position.longitude}');
-      ref.read(currentLocationProvider.notifier).state = position;
-      ref.read(gpsErrorProvider.notifier).state = null;
-    };
-    
-    gpsService.onError = (error) {
-      print('AppLifecycle: GPS error - $error');
-      ref.read(gpsErrorProvider.notifier).state = error;
-    };
-    
-    // Start tracking
-    await gpsService.startTracking(tripId, driverId, token);
+    // Start GPS streaming (new API)
+    await gpsService.startGpsStreaming(tripId);
     ref.read(gpsTrackingStateProvider.notifier).state = true;
+    print('AppLifecycle: GPS streaming started for trip: $tripId');
   }
   
   /// Stop GPS tracking when trip ends
   void onTripEnd() {
     final gpsService = ref.read(gpsServiceProvider);
-    gpsService.stopTracking();
+    gpsService.stopGpsStreaming();
     ref.read(gpsTrackingStateProvider.notifier).state = false;
     ref.read(currentLocationProvider.notifier).state = null;
-    print('AppLifecycle: GPS tracking stopped');
+    print('AppLifecycle: GPS streaming stopped');
   }
   
   /// Disconnect SSE when driver logs out
   void onLogout() {
     // Stop GPS if running
     final gpsService = ref.read(gpsServiceProvider);
-    if (gpsService.isTracking) {
-      gpsService.stopTracking();
+    if (gpsService.isStreaming) {
+      gpsService.stopGpsStreaming();
       ref.read(gpsTrackingStateProvider.notifier).state = false;
     }
     
@@ -135,7 +124,7 @@ class AppLifecycleService {
   /// Check GPS permissions
   Future<bool> checkGpsPermissions() async {
     final gpsService = ref.read(gpsServiceProvider);
-    return await gpsService.checkPermissions();
+    return await gpsService.requestLocationPermissions();
   }
 }
 

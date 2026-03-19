@@ -11,8 +11,13 @@ import (
 
 type LocationUpdate struct {
 	TripID    string  `json:"trip_id" binding:"required"`
-	Latitude  float64 `json:"latitude" binding:"required"`
-	Longitude float64 `json:"longitude" binding:"required"`
+	Lat       float64 `json:"lat" binding:"required"`
+	Lng       float64 `json:"lng" binding:"required"`
+	AccuracyM float64 `json:"accuracy_m"`
+	Timestamp string  `json:"timestamp"`
+	// Legacy fields for backward compatibility
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 	Speed     float64 `json:"speed"`
 	Heading   float64 `json:"heading"`
 	Accuracy  float64 `json:"accuracy"`
@@ -23,6 +28,22 @@ func UpdateLocation(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Support both new (lat/lng) and legacy (latitude/longitude) field names
+	lat := req.Lat
+	lng := req.Lng
+	accuracyM := req.AccuracyM
+	
+	// Fall back to legacy fields if new fields are not provided
+	if lat == 0 && req.Latitude != 0 {
+		lat = req.Latitude
+	}
+	if lng == 0 && req.Longitude != 0 {
+		lng = req.Longitude
+	}
+	if accuracyM == 0 && req.Accuracy != 0 {
+		accuracyM = req.Accuracy
 	}
 
 	// Get trip details
@@ -43,7 +64,7 @@ func UpdateLocation(c *gin.Context) {
 	                DO UPDATE SET latitude = $4, longitude = $5, speed = $6, heading = $7, accuracy_m = $8, timestamp = $9, updated_at = $10`
 
 	_, err = config.DB.Exec(upsertQuery, req.TripID, routeID, driverID, 
-		req.Latitude, req.Longitude, req.Speed, req.Heading, req.Accuracy, now, now)
+		lat, lng, req.Speed, req.Heading, accuracyM, now, now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -54,7 +75,7 @@ func UpdateLocation(c *gin.Context) {
 	logQuery := `INSERT INTO gps_logs (id, trip_id, latitude, longitude, speed, heading, accuracy_m, timestamp, received_at)
 	             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	config.DB.Exec(logQuery, logID, req.TripID, req.Latitude, req.Longitude, req.Speed, req.Heading, req.Accuracy, now, now)
+	config.DB.Exec(logQuery, logID, req.TripID, lat, lng, req.Speed, req.Heading, accuracyM, now, now)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Location updated successfully"})
 }

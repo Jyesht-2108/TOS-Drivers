@@ -53,12 +53,12 @@ class Trip {
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
       id: json['id'] as String,
-      routeId: json['routeId'] as String,
-      tripType: TripType.fromJson(json['tripType'] as String),
+      routeId: (json['routeId'] ?? json['route_id']) as String,
+      tripType: TripType.fromJson((json['tripType'] ?? json['trip_type']) as String),
       status: TripStatus.fromJson(json['status'] as String),
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null 
-          ? DateTime.parse(json['endTime'] as String) 
+      startTime: DateTime.parse((json['startTime'] ?? json['start_time']) as String),
+      endTime: json['endTime'] != null || json['end_time'] != null
+          ? DateTime.parse((json['endTime'] ?? json['end_time']) as String) 
           : null,
     );
   }

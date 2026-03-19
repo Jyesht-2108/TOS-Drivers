@@ -29,6 +29,8 @@ class TripService {
       final userId = await _getUserId();
       
       final url = Uri.parse('$baseUrl/api/v1/trips/start');
+      print('TripService: Starting trip - URL: $url, RouteID: $routeId, Type: $tripType');
+      
       final response = await http.post(
         url,
         headers: {
@@ -42,14 +44,23 @@ class TripService {
         }),
       );
 
+      print('TripService: Response status: ${response.statusCode}');
+      print('TripService: Response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return Trip.fromJson(data);
+        final trip = Trip.fromJson(data);
+        print('TripService: Trip started successfully - ID: ${trip.id}, Status: ${trip.status}');
+        return trip;
       } else {
-        throw Exception('Failed to start trip: ${response.statusCode}');
+        throw Exception('Failed to start trip: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      throw Exception('Network error: Unable to start trip');
+      print('TripService: Error starting trip: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow;
+      }
+      throw Exception('Network error: Unable to start trip - $e');
     }
   }
 
@@ -58,6 +69,8 @@ class TripService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
+      
+      print('TripService: Ending trip - ID: $tripId');
       
       final url = Uri.parse('$baseUrl/api/v1/trips/end');
       final response = await http.post(
@@ -72,14 +85,25 @@ class TripService {
         }),
       );
 
+      print('TripService: End trip response status: ${response.statusCode}');
+      print('TripService: End trip response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return Trip.fromJson(data);
+        final trip = Trip.fromJson(data);
+        print('TripService: Trip ended successfully - ID: ${trip.id}, Status: ${trip.status}');
+        return trip;
+      } else if (response.statusCode == 404) {
+        throw Exception('Trip not found or already ended');
       } else {
-        throw Exception('Failed to end trip: ${response.statusCode}');
+        throw Exception('Failed to end trip: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      throw Exception('Network error: Unable to end trip');
+      print('TripService: Error ending trip: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow;
+      }
+      throw Exception('Network error: Unable to end trip - $e');
     }
   }
 
