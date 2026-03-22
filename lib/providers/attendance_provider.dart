@@ -92,39 +92,42 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
 
   // Mark attendance for a student
   Future<void> markAttendance(
-    String studentId,
-    String tripId,
+    String attendanceId,
     AttendanceStatus status,
   ) async {
-    state = state.copyWith(isLoading: true, error: null);
+    // Optimistic update: immediately update UI
+    final optimisticRecords = state.records.map((record) {
+      if (record.id == attendanceId) {
+        return record.copyWith(
+          status: status,
+          locked: true, // Lock immediately on mark
+          markedAt: DateTime.now(),
+        );
+      }
+      return record;
+    }).toList();
+
+    state = state.copyWith(records: optimisticRecords, isLoading: true, error: null);
     
     try {
-      final updatedRecord = await _attendanceService.markAttendance(
-        studentId,
-        tripId,
-        status,
-      );
-
-      // Update the record in the list
-      final updatedRecords = state.records.map((record) {
-        if (record.studentId == studentId) {
-          return updatedRecord;
-        }
-        return record;
-      }).toList();
-
-      state = AttendanceState(records: updatedRecords, isLoading: false);
+      // Call backend API
+      await _attendanceService.markAttendance(attendanceId, status);
+      
+      // Success - keep the optimistic update
+      state = state.copyWith(isLoading: false);
     } catch (e) {
+      // Revert optimistic update on error
       state = state.copyWith(
         isLoading: false,
         error: e.toString().replaceAll('Exception: ', ''),
       );
+      
+      // Reload attendance to get correct state
+      final tripId = state.records.firstOrNull?.tripId;
+      if (tripId != null) {
+        await loadAttendanceForTrip(tripId);
+      }
     }
-  }
-
-  // Check if attendance is locked for a student
-  Future<bool> isLocked(String studentId, String tripId) async {
-    return await _attendanceService.isAttendanceLocked(studentId, tripId);
   }
 
   // Clear attendance records (e.g., when leaving attendance screen)

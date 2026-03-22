@@ -38,6 +38,28 @@ func GetRoutes(c *gin.Context) {
 			&route.Status, &route.CreatedAt, &route.UpdatedAt); err != nil {
 			continue
 		}
+		
+		// Fetch students for this route
+		studentsQuery := `SELECT s.id, s.tenant_id, s.name, s.grade, s.section, s.created_at, s.updated_at
+		                  FROM students s
+		                  INNER JOIN route_students rs ON s.id = rs.student_id
+		                  WHERE rs.route_id = $1
+		                  ORDER BY s.name`
+		
+		studentRows, err := config.DB.Query(studentsQuery, route.ID)
+		if err == nil {
+			students := make([]models.Student, 0)
+			for studentRows.Next() {
+				var student models.Student
+				if err := studentRows.Scan(&student.ID, &student.TenantID, &student.Name,
+					&student.Grade, &student.Section, &student.CreatedAt, &student.UpdatedAt); err == nil {
+					students = append(students, student)
+				}
+			}
+			studentRows.Close()
+			route.Students = students
+		}
+		
 		routes = append(routes, route)
 	}
 

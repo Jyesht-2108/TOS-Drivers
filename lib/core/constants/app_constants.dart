@@ -2,7 +2,7 @@
 
 class ApiConfig {
   // Backend base URL - Go backend on port 8082
-  static const String baseUrl = 'http://192.168.1.101:8082';
+  static const String baseUrl = 'http://192.168.0.104:8082';
   
   // API version prefix
   static const String apiPrefix = '/api/v1';
@@ -19,7 +19,7 @@ class ApiConfig {
   // static const String baseUrl = 'http://localhost:8082';
   
   // For Physical Device (update with your computer's IP):
-  // static const String baseUrl = 'http://192.168.1.101:8082';
+  // static const String baseUrl = 'http://192.168.0.104:8082';
 }
 
 class AppConstants {

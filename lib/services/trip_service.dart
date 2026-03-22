@@ -8,7 +8,7 @@ import '../models/trip.dart';
 class TripService {
   final String baseUrl;
 
-  TripService({this.baseUrl = 'http://192.168.1.101:8082'});
+  TripService({this.baseUrl = 'http://192.168.0.104:8082'});
 
   // Get auth token from storage
   Future<String?> _getToken() async {

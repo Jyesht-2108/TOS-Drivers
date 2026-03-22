@@ -37,26 +37,24 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
   // Track temporary selections before confirmation
   final Map<String, AttendanceStatus> _tempSelections = {};
 
-  void _selectAttendance(String studentId, AttendanceStatus status) {
+  void _selectAttendance(String attendanceId, AttendanceStatus status) {
     setState(() {
-      _tempSelections[studentId] = status;
+      _tempSelections[attendanceId] = status;
     });
   }
 
   Future<void> _confirmAttendance(
-    String studentId,
-    String tripId,
+    String attendanceId,
     AttendanceStatus status,
   ) async {
     await ref.read(attendanceProvider.notifier).markAttendance(
-          studentId,
-          tripId,
+          attendanceId,
           status,
         );
 
     if (mounted) {
       setState(() {
-        _tempSelections.remove(studentId);
+        _tempSelections.remove(attendanceId);
       });
 
       final attendanceState = ref.read(attendanceProvider);
@@ -71,9 +69,9 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
     }
   }
 
-  void _cancelSelection(String studentId) {
+  void _cancelSelection(String attendanceId) {
     setState(() {
-      _tempSelections.remove(studentId);
+      _tempSelections.remove(attendanceId);
     });
   }
 
@@ -165,7 +163,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                         Icon(Icons.people, size: 18, color: Colors.grey[700]),
                         const SizedBox(width: 4),
                         Text(
-                          '${attendanceState.markedCount}/${route.students.length} confirmed',
+                          '${attendanceState.markedCount}/${attendanceState.records.length} confirmed',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[700],
                             fontWeight: FontWeight.w500,
@@ -181,18 +179,13 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: route.students.length,
+                  itemCount: attendanceState.records.length,
                   itemBuilder: (context, index) {
-                    final student = route.students[index];
-                    final record = attendanceState.getRecordForStudent(student.id);
+                    final record = attendanceState.records[index];
                     
-                    if (record == null) {
-                      return const SizedBox.shrink();
-                    }
-
                     final isLocked = record.isLocked;
                     final status = record.status;
-                    final tempSelection = _tempSelections[student.id];
+                    final tempSelection = _tempSelections[record.id];
                     final hasSelection = tempSelection != null;
                     final isPresent = status == AttendanceStatus.PRESENT;
                     final isAbsent = status == AttendanceStatus.ABSENT;
@@ -223,7 +216,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                               : Colors.red[300])
                                           : Colors.grey[300]),
                                   child: Text(
-                                    student.name[0].toUpperCase(),
+                                    record.studentName[0].toUpperCase(),
                                     style: TextStyle(
                                       color: (isLocked || hasSelection) ? Colors.white : Colors.grey[700],
                                       fontWeight: FontWeight.bold,
@@ -236,7 +229,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        student.name,
+                                        record.studentName,
                                         style: theme.textTheme.bodyLarge?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: isLocked ? Colors.grey[700] : null,
@@ -304,7 +297,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                     Expanded(
                                       child: OutlinedButton.icon(
                                         onPressed: () => _selectAttendance(
-                                              student.id,
+                                              record.id,
                                               AttendanceStatus.PRESENT,
                                             ),
                                         icon: const Icon(Icons.check, size: 20),
@@ -320,7 +313,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                     Expanded(
                                       child: OutlinedButton.icon(
                                         onPressed: () => _selectAttendance(
-                                              student.id,
+                                              record.id,
                                               AttendanceStatus.ABSENT,
                                             ),
                                         icon: const Icon(Icons.close, size: 20),
@@ -340,7 +333,7 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                   children: [
                                     Expanded(
                                       child: OutlinedButton.icon(
-                                        onPressed: () => _cancelSelection(student.id),
+                                        onPressed: () => _cancelSelection(record.id),
                                         icon: const Icon(Icons.undo, size: 20),
                                         label: const Text('Change'),
                                         style: OutlinedButton.styleFrom(
@@ -354,13 +347,23 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                                     Expanded(
                                       flex: 2,
                                       child: ElevatedButton.icon(
-                                        onPressed: () => _confirmAttendance(
-                                              student.id,
-                                              activeTrip.id,
-                                              tempSelection,
-                                            ),
-                                        icon: const Icon(Icons.check_circle, size: 20),
-                                        label: const Text('Confirm & Lock'),
+                                        onPressed: attendanceState.isLoading 
+                                            ? null 
+                                            : () => _confirmAttendance(
+                                                  record.id,
+                                                  tempSelection,
+                                                ),
+                                        icon: attendanceState.isLoading
+                                            ? const SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                ),
+                                              )
+                                            : const Icon(Icons.check_circle, size: 20),
+                                        label: Text(attendanceState.isLoading ? 'Saving...' : 'Confirm & Lock'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: tempSelection == AttendanceStatus.PRESENT
                                               ? AppTheme.successGreen

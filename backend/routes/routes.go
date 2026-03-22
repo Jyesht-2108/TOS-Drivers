@@ -28,7 +28,8 @@ func SetupRoutes(router *gin.RouterGroup) {
 		protected.GET("/trips/active", handlers.GetActiveTrip)
 		protected.GET("/trips/:trip_id/attendance", handlers.GetAttendance)
 
-		// Attendance
+		// Attendance - support both path param and query param
+		protected.GET("/attendance", handlers.GetAttendance) // Query param: ?trip_id=xxx
 		protected.POST("/attendance/mark", handlers.MarkAttendance)
 
 		// Location

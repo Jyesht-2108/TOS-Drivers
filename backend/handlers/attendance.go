@@ -26,7 +26,16 @@ type MarkAttendanceRequest struct {
 }
 
 func GetAttendance(c *gin.Context) {
+	// Support both path parameter (/trips/:trip_id/attendance) and query parameter (?trip_id=xxx)
 	tripID := c.Param("trip_id")
+	if tripID == "" {
+		tripID = c.Query("trip_id")
+	}
+
+	if tripID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "trip_id is required"})
+		return
+	}
 
 	query := `SELECT a.id, a.trip_id, a.student_id, s.name, a.status, a.marked_by, a.marked_at, a.locked
 	          FROM attendance a

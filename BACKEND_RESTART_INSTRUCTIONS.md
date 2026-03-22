@@ -1,28 +1,21 @@
 # Backend Restart Instructions
 
 ## Issue Fixed
-The `StartTrip` handler had a bug where it was inserting `trip_date` but the parameter count was mismatched. This has been fixed.
+Routes were not showing students on the mobile app because the backend API was not including student data in the routes response.
 
-## How to Restart the Backend
+## Changes Made
+1. Updated `backend/models/route.go` to include a `Students` field in the Route struct
+2. Updated `backend/handlers/routes.go` to fetch and include students for each route in the GetRoutes response
 
-### Option 1: Stop and Restart (Recommended)
+## Backend Status
+The backend is currently running on port 8082 with the updated code.
 
-1. **Stop the current backend process:**
-   - Go to the terminal where `go run main.go` is running (pts/3)
-   - Press `Ctrl+C` to stop it
+## How to Restart Backend
 
-2. **Start the backend again:**
-   ```bash
-   cd backend
-   go run main.go
-   ```
-
-### Option 2: Kill and Restart
-
-If you can't find the terminal:
+If you need to restart the backend:
 
 ```bash
-# Kill the process
+# Stop any existing backend process
 pkill -f "go run main.go"
 
 # Start the backend
@@ -30,58 +23,18 @@ cd backend
 go run main.go
 ```
 
-## Verify Backend is Running
+The backend will start on port 8082 and connect to PostgreSQL.
 
-After restarting, test the health endpoint:
+## Testing Routes API
 
+Test the routes endpoint:
 ```bash
-curl http://192.168.1.101:8082/health
+curl -X GET "http://192.168.0.104:8082/api/v1/routes" \
+  -H "X-User-ID: 20000000-0000-0000-0000-000000000001" \
+  -H "Content-Type: application/json"
 ```
 
-Should return: `{"status":"ok"}`
+You should see routes with their students array populated.
 
-## Test Trip Start
-
-After the backend restarts, try starting a trip from the app. The 500 error should be resolved.
-
-## What Was Fixed
-
-**Before:**
-```go
-tripDate := now.Format("2006-01-02")
-query := `INSERT INTO trips (...) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8) ...`
-err := config.DB.QueryRow(query, tripID, tenantID, req.RouteID, driverID, 
-    req.TripType, tripDate, now, now).Scan(...)
-```
-This had 8 parameters but the query expected them in a specific order.
-
-**After:**
-```go
-query := `INSERT INTO trips (...) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, 'ACTIVE', $6, $7) ...`
-err := config.DB.QueryRow(query, tripID, tenantID, req.RouteID, driverID, 
-    req.TripType, now, now).Scan(...)
-```
-Now using `CURRENT_DATE` directly in SQL, reducing parameter count to 7 and avoiding the mismatch.
-
-## Expected Behavior After Fix
-
-1. Login with phone: `+1234567891`
-2. Navigate to "My Routes"
-3. Click "Start Trip" on Route A
-4. Trip should start successfully
-5. GPS streaming should begin automatically (every 15 seconds)
-6. Check backend logs - you should see GPS updates coming in
-
-## Monitoring GPS Updates
-
-Watch the backend logs to see GPS updates:
-```bash
-# In the backend terminal, you'll see logs like:
-# GPS streaming update - Trip: <trip-id>, Lat: <lat>, Lng: <lng>, Accuracy: <accuracy>m
-```
-
-Check the database:
-```bash
-psql -h localhost -U postgres -d tos_db -c "SELECT * FROM latest_bus_location;"
-psql -h localhost -U postgres -d tos_db -c "SELECT * FROM gps_logs ORDER BY received_at DESC LIMIT 5;"
-```
+## Mobile App
+Pull to refresh on the routes screen to fetch the updated data with student counts.

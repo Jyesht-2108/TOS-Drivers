@@ -4,7 +4,7 @@ import '../services/sse_service.dart';
 // Base URL provider - can be overridden for different environments
 final baseUrlProvider = Provider<String>((ref) {
   // Physical device - using computer's IP address
-  return 'http://192.168.1.101:8082';
+  return 'http://192.168.0.104:8082';
   
   // Android emulator
   // return 'http://10.0.2.2:8082';
