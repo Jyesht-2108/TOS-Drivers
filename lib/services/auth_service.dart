@@ -1,6 +1,7 @@
 // Authentication service with real API implementation
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
@@ -75,6 +76,21 @@ class AuthService {
       } else {
         throw Exception('Login failed: ${response.statusCode} - ${response.body}');
       }
+    } on SocketException catch (e) {
+      print('Auth: Socket error during login: $e');
+      throw Exception('Cannot connect to server at ${ApiConfig.baseUrl}. Please check:\n'
+          '1. Your phone is on the same WiFi network\n'
+          '2. Backend is running on port 8082\n'
+          '3. IP address is correct (${ApiConfig.baseUrl})');
+    } on http.ClientException catch (e) {
+      print('Auth: Client error during login: $e');
+      throw Exception('Network connection failed. Please check:\n'
+          '1. Your internet connection\n'
+          '2. Backend server is accessible\n'
+          '3. Firewall is not blocking port 8082');
+    } on FormatException catch (e) {
+      print('Auth: Invalid response format: $e');
+      throw Exception('Invalid response from server. Backend may be misconfigured.');
     } catch (e) {
       print('Auth: Error during login: $e');
       if (e.toString().contains('Exception:')) {

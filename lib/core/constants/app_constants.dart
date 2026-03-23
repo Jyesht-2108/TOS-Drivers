@@ -2,7 +2,8 @@
 
 class ApiConfig {
   // Backend base URL - Go backend on port 8082
-  static const String baseUrl = 'http://192.168.0.104:8082';
+  // Using 127.0.0.1 with ADB reverse port forwarding
+  static const String baseUrl = 'http://127.0.0.1:8082';
   
   // API version prefix
   static const String apiPrefix = '/api/v1';
