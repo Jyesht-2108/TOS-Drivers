@@ -87,6 +87,9 @@ class RouteService {
     try {
       final token = await _getToken();
       
+      print('RouteService: Fetching route by ID: $routeId');
+      print('RouteService: URL: $baseUrl/api/v1/routes/$routeId');
+      
       final url = Uri.parse('$baseUrl/api/v1/routes/$routeId');
       final response = await http.get(
         url,
@@ -94,15 +97,34 @@ class RouteService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout');
+        },
       );
+
+      print('RouteService: Response status: ${response.statusCode}');
+      print('RouteService: Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return Route.fromJson(data);
+        final route = Route.fromJson(data);
+        
+        // Fetch students for this route
+        final students = await getStudentsByRoute(routeId);
+        
+        // Create a new route with students using copyWith
+        final routeWithStudents = route.copyWith(students: students);
+        
+        print('RouteService: Successfully fetched route: ${routeWithStudents.name} with ${routeWithStudents.students.length} students');
+        return routeWithStudents;
       } else {
+        print('RouteService: Failed to fetch route: ${response.statusCode}');
         return null;
       }
     } catch (e) {
+      print('RouteService: Error fetching route by ID: $e');
       return null;
     }
   }
@@ -112,6 +134,8 @@ class RouteService {
     try {
       final token = await _getToken();
       
+      print('RouteService: Fetching students for route: $routeId');
+      
       final url = Uri.parse('$baseUrl/api/v1/routes/$routeId/students');
       final response = await http.get(
         url,
@@ -119,16 +143,26 @@ class RouteService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout');
+        },
       );
+
+      print('RouteService: Students response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        print('RouteService: Found ${data.length} students');
         return data.map((json) => Student.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load students: ${response.statusCode}');
+        print('RouteService: Failed to load students: ${response.statusCode}');
+        return []; // Return empty list instead of throwing
       }
     } catch (e) {
-      throw Exception('Network error: Unable to fetch students');
+      print('RouteService: Error fetching students: $e');
+      return []; // Return empty list instead of throwing
     }
   }
 }

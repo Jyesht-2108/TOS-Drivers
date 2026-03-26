@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import '../../../models/trip.dart';
 import '../../../models/route.dart' as models;
 import '../../../providers/trip_provider.dart';
 import '../../../providers/attendance_provider.dart';
+import '../../../providers/gps_provider.dart';
 import '../../../services/route_service.dart';
 import '../../../shared/widgets/slide_button.dart';
 import 'package:intl/intl.dart';
@@ -35,9 +37,11 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+  Position? _currentPosition;
+  StreamSubscription<Position>? _positionStream;
 
-  // Sample coordinates for demonstration (Dhaka, Bangladesh area)
-  static const LatLng _initialPosition = LatLng(23.8103, 90.4125);
+  // Default position (will be replaced by actual GPS)
+  static const LatLng _defaultPosition = LatLng(23.8103, 90.4125);
 
   @override
   void initState() {
@@ -46,65 +50,59 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
-    _initializeMap();
+    _getCurrentLocation();
+    _startLocationUpdates();
   }
 
-  void _initializeMap() {
-    // Sample student drop points along a route
-    final List<LatLng> dropPoints = [
-      const LatLng(23.8103, 90.4125), // Start point
-      const LatLng(23.8150, 90.4180),
-      const LatLng(23.8200, 90.4220),
-      const LatLng(23.8250, 90.4280),
-      const LatLng(23.8300, 90.4340),
-      const LatLng(23.8350, 90.4400),
-      const LatLng(23.8400, 90.4460), // End point
-    ];
-
-    // Create markers for each drop point
-    _markers = dropPoints.asMap().entries.map((entry) {
-      final index = entry.key;
-      final position = entry.value;
-      
-      return Marker(
-        markerId: MarkerId('drop_point_$index'),
-        position: position,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          index == 0 
-            ? BitmapDescriptor.hueGreen // Start point
-            : index == dropPoints.length - 1
-              ? BitmapDescriptor.hueRed // End point
-              : BitmapDescriptor.hueBlue, // Student drop points
-        ),
-        infoWindow: InfoWindow(
-          title: index == 0 
-            ? 'Start Point'
-            : index == dropPoints.length - 1
-              ? 'End Point'
-              : 'Student ${index}',
-          snippet: index == 0 || index == dropPoints.length - 1
-            ? null
-            : 'Drop point',
-        ),
+  Future<void> _getCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
-    }).toSet();
+      
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+        
+        // Move camera to current location
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(position.latitude, position.longitude),
+            15,
+          ),
+        );
+        
+        print('ActiveTrip: Current location - Lat: ${position.latitude}, Lng: ${position.longitude}');
+      }
+    } catch (e) {
+      print('ActiveTrip: Error getting location: $e');
+    }
+  }
 
-    // Create polyline connecting all points
-    _polylines = {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: dropPoints,
-        color: Colors.blue,
-        width: 4,
-        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+  void _startLocationUpdates() {
+    // Listen to position updates every 5 seconds
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Update when moved 10 meters
       ),
-    };
+    ).listen((Position position) {
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+        
+        print('ActiveTrip: Location updated - Lat: ${position.latitude}, Lng: ${position.longitude}');
+      }
+    });
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _mapController?.dispose();
+    _positionStream?.cancel();
     super.dispose();
   }
 
@@ -249,9 +247,11 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                 // Map View
                 Expanded(
                   child: GoogleMap(
-                    initialCameraPosition: const CameraPosition(
-                      target: _initialPosition,
-                      zoom: 13,
+                    initialCameraPosition: CameraPosition(
+                      target: _currentPosition != null
+                          ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                          : _defaultPosition,
+                      zoom: 15,
                     ),
                     markers: _markers,
                     polylines: _polylines,
@@ -260,6 +260,15 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                     mapType: MapType.normal,
                     onMapCreated: (GoogleMapController controller) {
                       _mapController = controller;
+                      // Move to current location once map is created
+                      if (_currentPosition != null) {
+                        controller.animateCamera(
+                          CameraUpdate.newLatLngZoom(
+                            LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                            15,
+                          ),
+                        );
+                      }
                     },
                   ),
                 ),

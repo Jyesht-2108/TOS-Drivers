@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/trip_provider.dart';
 import '../../../providers/sse_provider.dart';
+import '../../../providers/gps_provider.dart';
 import '../../../services/route_service.dart';
 import '../../../models/route.dart' as models;
 
@@ -32,8 +33,62 @@ final assignedRoutesProvider = FutureProvider.autoDispose<List<models.Route>>((r
   return routes;
 });
 
-class RouteListScreen extends ConsumerWidget {
+class RouteListScreen extends ConsumerStatefulWidget {
   const RouteListScreen({super.key});
+
+  @override
+  ConsumerState<RouteListScreen> createState() => _RouteListScreenState();
+}
+
+class _RouteListScreenState extends ConsumerState<RouteListScreen> {
+  bool _hasLocationPermission = false;
+  bool _permissionChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Request location permissions when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLocationPermissions();
+    });
+  }
+
+  Future<void> _checkLocationPermissions() async {
+    final gpsService = ref.read(gpsServiceProvider);
+    final hasPermission = await gpsService.requestLocationPermissions();
+    
+    setState(() {
+      _hasLocationPermission = hasPermission;
+      _permissionChecked = true;
+    });
+
+    if (!hasPermission && mounted) {
+      // Show warning snackbar if permission denied
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'GPS tracking disabled. You can still start trips, but location won\'t be tracked.',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange[700],
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+    }
+  }
 
   String _getRouteStatus(models.Route route, TripState tripState) {
     // Check if there's an active trip for this route
@@ -91,7 +146,7 @@ class RouteListScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final routesAsync = ref.watch(assignedRoutesProvider);
     final tripState = ref.watch(tripProvider);
@@ -124,7 +179,44 @@ class RouteListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: routesAsync.when(
+      body: Column(
+        children: [
+          // GPS Warning Banner (persistent)
+          if (_permissionChecked && !_hasLocationPermission)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.orange[100],
+              child: Row(
+                children: [
+                  Icon(Icons.location_off, color: Colors.orange[900], size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'GPS tracking is disabled. Trips can start but location won\'t be tracked.',
+                      style: TextStyle(
+                        color: Colors.orange[900],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _checkLocationPermissions,
+                    child: Text(
+                      'RETRY',
+                      style: TextStyle(
+                        color: Colors.orange[900],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Routes List
+          Expanded(
+            child: routesAsync.when(
         data: (routes) {
           if (routes.isEmpty) {
             return Center(
@@ -363,6 +455,9 @@ class RouteListScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+          ),
+        ],
       ),
     );
   }
