@@ -45,5 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Location permissions for GPS tracking -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to track the bus during active trips and show your position on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to track the bus during active trips and show your position on the map.</string>
 </dict>
 </plist>
